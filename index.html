@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exclusive Counter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000;
+      --panel: rgba(2, 12, 5, .94);
+      --green: #00ff41;
+      --green-dim: #7fd68f;
+      --green-line: #0b6b22;
+      --green-soft: rgba(0, 255, 65, .08);
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--green);
+      font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 16px;
+      line-height: 1.5;
+      padding: 28px 16px 56px;
+    }
+    #rain { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: .22; pointer-events: none; }
+    main { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; }
+
+    header { margin-bottom: 22px; }
+    h1 { font-size: 1.9rem; font-weight: 800; margin: 0 0 8px; text-shadow: 0 0 14px rgba(0,255,65,.55); letter-spacing: -.02em; }
+    .badge { display: inline-block; border: 1px solid var(--green); padding: 3px 10px; font-size: .85rem; color: var(--green); background: var(--green-soft); }
+
+    .win { background: var(--panel); border: 1px solid var(--green-line); margin-bottom: 20px; box-shadow: 0 0 22px rgba(0,255,65,.08); }
+    .bar { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--green-line); background: var(--green-soft); font-weight: 700; font-size: .9rem; }
+    .bar span:last-child { color: var(--green-dim); font-weight: 400; }
+    .body { padding: 16px 14px; }
+
+    label { display: block; color: var(--green-dim); margin-bottom: 8px; }
+    .prompt { display: flex; align-items: center; gap: 10px; border: 1px solid var(--green); padding: 8px 12px; background: #000; }
+    .prompt:focus-within { box-shadow: 0 0 0 2px var(--green), 0 0 18px rgba(0,255,65,.5); }
+    .prompt b { font-size: 1.6rem; }
+    input {
+      font: inherit; font-size: 1.7rem; font-weight: 700;
+      background: transparent; border: 0; outline: 0; color: var(--green);
+      width: 100%; min-width: 0; caret-color: var(--green);
+    }
+    .prompt .unit { color: var(--green-dim); }
+
+    .steps { margin-top: 18px; display: grid; gap: 12px; }
+    .step { border-left: 3px solid var(--green); padding: 4px 0 4px 12px; }
+    .step .title { color: var(--green-dim); font-size: .88rem; }
+    .step .line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 14px; font-size: 1.1rem; }
+    .step .res { font-weight: 800; }
+    .rate { display: flex; align-items: center; gap: 8px; }
+    .rate input { font-size: 1rem; width: 96px; border: 1px solid var(--green-line); padding: 3px 8px; background: #000; }
+    .rate input:focus-visible { border-color: var(--green); box-shadow: 0 0 0 2px var(--green); }
+    .note { margin: 12px 0 0; color: var(--green-dim); font-size: .82rem; }
+
+    .total { margin-top: 18px; border: 2px solid var(--green); background: var(--green-soft); padding: 14px 16px; text-align: center; box-shadow: 0 0 24px rgba(0,255,65,.25); }
+    .total .small { color: var(--green-dim); font-size: .9rem; }
+    .total .big { display: block; font-size: 2.9rem; font-weight: 800; line-height: 1.1; text-shadow: 0 0 16px rgba(0,255,65,.7); font-variant-numeric: tabular-nums; word-break: break-word; }
+
+    .fact .value { font-size: 1.7rem; font-weight: 800; line-height: 1.2; margin: 0 0 6px; text-shadow: 0 0 10px rgba(0,255,65,.4); }
+    .fact p { margin: 0 0 4px; color: var(--green-dim); }
+    .fact .quip { color: var(--green); font-weight: 700; margin-top: 8px; }
+    .fact .quip:empty { display: none; }
+    .fact .quip::before { content: "> "; }
+
+    footer { color: var(--green-dim); font-size: .8rem; text-align: center; margin-top: 6px; }
+    @media (max-width: 440px) {
+      body { font-size: 15px; }
+      h1 { font-size: 1.5rem; }
+      input { font-size: 1.4rem; }
+      .total .big { font-size: 2.3rem; }
+      .fact .value { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="rain" aria-hidden="true"></canvas>
+<main>
+  <header>
+    <h1>Exclusive Counter</h1>
+    <span class="badge" id="joinedBadge">Joined 7 Nov 2026</span>
+  </header>
+
+  <section class="win" aria-labelledby="inLabel">
+    <div class="bar"><span>Convert points</span><span>points → USD → CZK</span></div>
+    <div class="body">
+      <label for="points" id="inLabel">How many Exclusive Points do you have?</label>
+      <div class="prompt">
+        <b>&gt;</b>
+        <input type="text" id="points" inputmode="decimal" autocomplete="off" value="47.289">
+        <span class="unit">pts</span>
+      </div>
+
+      <div class="steps" aria-live="polite">
+        <div class="step">
+          <div class="title">Step 1: points to dollars (1 point = 0.066 USD)</div>
+          <div class="line"><span id="sum1"></span><span class="res" id="res1"></span></div>
+        </div>
+        <div class="step">
+          <div class="title">Step 2: dollars to Czech crowns</div>
+          <div class="line"><span id="sum2"></span><span class="res" id="res2"></span></div>
+        </div>
+        <div class="step">
+          <div class="title">Today's rate (1 USD in CZK)</div>
+          <div class="line rate"><input type="number" id="rate" step="0.01" min="0" aria-label="USD to CZK rate"><span>CZK</span></div>
+        </div>
+      </div>
+      <p class="note" id="rateNote">Fetching today's rate...</p>
+
+      <div class="total">
+        <span class="small">Your points are worth</span>
+        <span class="big"><span id="total">0.00</span> CZK</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="win fact">
+    <div class="bar"><span>Daily average</span><span id="daysTag"></span></div>
+    <div class="body">
+      <div class="value" id="perDay"></div>
+      <p id="perDayDetail"></p>
+      <p class="quip" id="perDayQuip"></p>
+    </div>
+  </section>
+
+  <section class="win fact">
+    <div class="bar"><span>Millionaire date</span><span>1,000,000 CZK</span></div>
+    <div class="body">
+      <div class="value" id="milDate"></div>
+      <p id="milDetail"></p>
+      <p class="quip" id="milQuip"></p>
+    </div>
+  </section>
+
+  <section class="win fact">
+    <div class="bar"><span>First cash-out</span><span>minimum 100 USD</span></div>
+    <div class="body">
+      <div class="value" id="payDate"></div>
+      <p id="payDetail"></p>
+    </div>
+  </section>
+
+  <footer>Rates from the European Central Bank. Real payouts may differ a little.</footer>
+</main>
+
+<script>
+  const JOINED = new Date(2026, 10, 7);   // 7 Nov 2026 (month is 0-based)
+  const USD_PER_POINT = 0.066;
+  const MILLION_CZK = 1000000;
+  const PAYOUT_MIN_USD = 100;
+  const FALLBACK_RATE = 21;
+
+  const $ = id => document.getElementById(id);
+  const fmt = (n, d = 2) => n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtDate = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+  function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.max(1, Math.floor((today - JOINED) / 86400000) + 1);
+  $("daysTag").textContent = days + (days === 1 ? " day" : " days") + " on Exclusive";
+  $("joinedBadge").textContent = "Joined " + fmtDate(JOINED) + " · day " + days;
+
+  function addDays(n) {
+    const d = new Date(today.getTime() + n * 86400000);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function yearsText(n) {
+    const y = n / 365.25;
+    if (y < 1) return "in about " + Math.max(1, Math.round(n)) + " days";
+    if (y < 10) return "in about " + fmt(y, 1) + " years";
+    return "in about " + Math.round(y).toLocaleString("en-US") + " years";
+  }
+  function millionQuip(n) {
+    const y = n / 365.25;
+    if (y < 1) return "Basically tomorrow. Buy the good filament.";
+    if (y < 5) return "Totally doable. Keep printing!";
+    if (y < 30) return "Retirement plan: sorted-ish.";
+    if (y < 150) return "Your great-grandchildren will throw a party.";
+    return "Fine print: requires immortality or a very patient robot.";
+  }
+  function perDayQuip(czk) {
+    if (czk <= 0) return "A fresh start. Upload something!";
+    if (czk < 15) return "Roughly the price of a sad coffee. Still, it's coffee money.";
+    if (czk < 60) return "Lunch money, nice.";
+    if (czk < 200) return "That's a proper dinner. Fancy!";
+    return "Okay, boss. Take the day off.";
+  }
+
+  function render() {
+    const raw = $("points").value.replace(",", ".").replace(/\s/g, "");
+    const points = Math.max(0, parseFloat(raw) || 0);
+    const rate = Math.max(0, parseFloat($("rate").value) || 0);
+
+    const usd = points * USD_PER_POINT;
+    const czk = usd * rate;
+
+    $("sum1").textContent = fmt(points, 3) + " × 0.066";
+    $("res1").textContent = "= " + fmt(usd) + " USD";
+    $("sum2").textContent = fmt(usd) + " × " + fmt(rate, 3);
+    $("res2").textContent = "= " + fmt(czk) + " CZK";
+    $("total").textContent = fmt(czk);
+
+    const ptsPerDay = points / days;
+    const usdPerDay = ptsPerDay * USD_PER_POINT;
+    const czkPerDay = usdPerDay * rate;
+    $("perDay").textContent = fmt(czkPerDay) + " CZK / day";
+    $("perDayDetail").textContent = fmt(ptsPerDay, 2) + " points = " + fmt(usdPerDay, 3) + " USD per day";
+    $("perDayQuip").textContent = perDayQuip(czkPerDay);
+
+    if (czk >= MILLION_CZK) {
+      $("milDate").textContent = "Already happened!";
+      $("milDetail").textContent = "You're past 1,000,000 CZK. Treat yourself.";
+      $("milQuip").textContent = "";
+    } else if (czkPerDay <= 0) {
+      $("milDate").textContent = "Never (for now)";
+      $("milDetail").textContent = "No income yet means no date. Print something!";
+      $("milQuip").textContent = "";
+    } else {
+      const n = (MILLION_CZK - czk) / czkPerDay;
+      const d = addDays(n);
+      $("milDate").textContent = d ? fmtDate(d) : "After the heat death of the universe";
+      $("milDetail").textContent = yearsText(n) + ", at your current pace.";
+      $("milQuip").textContent = millionQuip(n);
+    }
+
+    const need = PAYOUT_MIN_USD / USD_PER_POINT;
+    if (points >= need) {
+      $("payDate").textContent = "Right now!";
+      $("payDetail").textContent = "You already have the 100 USD minimum.";
+    } else if (ptsPerDay <= 0) {
+      $("payDate").textContent = "Not yet";
+      $("payDetail").textContent = "Needs " + fmt(need, 1) + " points in total.";
+    } else {
+      const n = Math.ceil((need - points) / ptsPerDay);
+      const d = addDays(n);
+      $("payDate").textContent = d ? fmtDate(d) : "Far, far away";
+      $("payDetail").textContent = "Needs " + fmt(need, 1) + " points; " + fmt(need - points, 1) + " to go, " + yearsText(n) + ".";
+    }
+  }
+
+  const saved = safeGet("ec_points");
+  if (saved) $("points").value = saved;
+
+  $("points").addEventListener("input", () => { safeSet("ec_points", $("points").value); render(); });
+  $("rate").addEventListener("input", () => { $("rateNote").textContent = "Using your own rate."; render(); });
+
+  $("rate").value = FALLBACK_RATE;
+  render();
+
+  fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=CZK")
+    .then(r => r.json())
+    .then(data => {
+      const r = data && data.rates && data.rates.CZK;
+      if (!r) throw new Error("no rate");
+      $("rate").value = r;
+      $("rateNote").textContent = "Live ECB rate from " + fmtDate(new Date(data.date)) + ". You can edit it.";
+      render();
+    })
+    .catch(() => {
+      $("rateNote").textContent = "Couldn't load today's rate, so this is an estimate (" + FALLBACK_RATE + "). Type the real rate above.";
+      render();
+    });
+
+  // Matrix rain (static if the visitor prefers reduced motion)
+  (function () {
+    const c = $("rain"), ctx = c.getContext("2d");
+    const chars = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789".split("");
+    const size = 16;
+    let cols, drops;
+    function resize() {
+      c.width = window.innerWidth; c.height = window.innerHeight;
+      cols = Math.ceil(c.width / size);
+      drops = Array.from({ length: cols }, () => Math.random() * -50);
+    }
+    function frame() {
+      ctx.fillStyle = "rgba(0,0,0,.08)";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = "#00ff41";
+      ctx.font = size + "px monospace";
+      for (let i = 0; i < cols; i++) {
+        ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * size, drops[i] * size);
+        if (drops[i] * size > c.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      }
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      for (let i = 0; i < 40; i++) frame();
+    } else {
+      setInterval(frame, 60);
+    }
+  })();
+</script>
+</body>
+</html>
